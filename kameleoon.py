@@ -14,6 +14,24 @@ STATUS_TO_FETCH = args[1]
 
 data = []
 
+gc = pygsheets.authorize(
+    service_file='./startandenddateautomation-494e73c92522.json')
+sh = gc.open('Kameleoon Sheet')
+if STATUS_TO_FETCH == 'stopped':
+    wks = sh[0]
+elif STATUS_TO_FETCH == 'paused':
+    wks = sh[1]
+cells = wks.get_all_values(
+    include_tailing_empty_rows=False, include_tailing_empty=False, returnas='matrix')
+
+def does_exist_in_sheet(row):
+    global cells
+    for list in cells:
+        if str(row['id']) == list[0]:
+            return True
+
+    return False
+
 response = requests.post(
     'https://api.kameleoon.com/oauth/token',
     headers={
@@ -68,6 +86,9 @@ for page in range(1, 2):
         if len(row['trackingTools']) == 0 or 'universalAnalyticsDimension' not in row['trackingTools'][0]:
             continue
 
+        if does_exist_in_sheet(row):
+            continue
+
         item = {
             'Kameleoon Test ID': row['id'],
             'Test Name': row['name'],
@@ -98,12 +119,14 @@ for page in range(1, 2):
         print(item)
         data.append(item)
 
-gc = pygsheets.authorize(
-    service_file='./startandenddateautomation-494e73c92522.json')
-df = pd.DataFrame(data)
-sh = gc.open('Kameleoon Sheet')
-if STATUS_TO_FETCH == 'stopped':
-    wks = sh[0]
-elif STATUS_TO_FETCH == 'paused':
-    wks = sh[1]
-wks.set_dataframe(df, (1, 1))
+last_row = len(cells)
+# For paused experiments the whole sheet needs to be overwritten, because there will be some addition of rows and some removal of rows
+if(last_row == 0 or STATUS_TO_FETCH == 'paused'):
+    df = pd.DataFrame(data)
+    wks.set_dataframe(df, (1, 1))
+else:
+    # conversion from list of dictionaries to list of lists
+    data = map(lambda d: list(d.values()), data)
+    data = list(data)
+    # add new rows
+    wks.insert_rows(last_row, number=len(data), values=data)
