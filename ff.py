@@ -11,6 +11,23 @@ import pandas as pd
 import pygsheets
 import traceback
 
+gc = pygsheets.authorize(
+    service_file='./startandenddateautomation-494e73c92522.json')
+sh = gc.open('Start End Date Automation')
+wks = sh[0]
+cells = wks.get_all_values(
+    include_tailing_empty_rows=False, include_tailing_empty=False, returnas='matrix')
+
+
+def does_exist_in_sheet(row):
+    global cells
+    for list in cells:
+        if str(row['experimentId']) == list[6]:
+            return True
+
+    return False
+
+
 s = Service("./geckodriver")
 
 options = webdriver.FirefoxOptions()
@@ -24,7 +41,6 @@ options.add_argument('--headless')
 options.add_argument("--no-sandbox")
 
 desired = DesiredCapabilities.FIREFOX
-# zhlz2zap.default-release-1639056005868
 fp = webdriver.FirefoxProfile('./zhlz2zap.default-release-1639056005868')
 
 driver = webdriver.Firefox(service=s, options=options,
@@ -66,6 +82,8 @@ try:
         containerLinks.append(containerLink)
         containerNames.append(containerName)
 
+    preliminary_data = []
+
     for j in range(len(containerLinks)):
         containerLink = containerLinks[j]
         containerName = containerNames[j]
@@ -93,7 +111,7 @@ try:
                 if(type != "A/B"):
                     continue
 
-                data.append({
+                preliminary_data.append({
                     'container': containerName,
                     'type': type,
                     'started': started,
@@ -128,19 +146,29 @@ try:
         divs = driver.find_elements_by_xpath(
             '//div[contains(@class, "opt-measurement-column")]/div')
 
-        data[i]['property'] = divs[1].text
-        data[i]['view'] = divs[3].text
-        data[i]['experimentId'] = divs[5].text
+        preliminary_data[i]['property'] = divs[1].text
+        preliminary_data[i]['view'] = divs[3].text
+        preliminary_data[i]['experimentId'] = divs[5].text
+
+        if does_exist_in_sheet(preliminary_data[i]):
+            continue
+
+        data.append(preliminary_data[i])
+
         time.sleep(1)
 
     print(data)
 
-    gc = pygsheets.authorize(
-        service_file='./startandenddateautomation-494e73c92522.json')
-    df = pd.DataFrame(data)
-    sh = gc.open('Start End Date Automation')
-    wks = sh[0]
-    wks.set_dataframe(df, (1, 1))
+    last_row = len(cells)
+    if(last_row == 0):
+        df = pd.DataFrame(data)
+        wks.set_dataframe(df, (1, 1))
+    else:
+        # conversion from list of dictionaries to list of lists
+        data = map(lambda d: list(d.values()), data)
+        data = list(data)
+        # add new rows
+        wks.insert_rows(last_row, number=len(data), values=data)
 
 except Exception as e:
     traceback.print_exc()
