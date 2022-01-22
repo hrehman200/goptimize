@@ -65,6 +65,8 @@ try:
     trsContainer = driver.find_elements_by_css_selector(
         '.opt-account-card-container-list')
 
+    #time.sleep(6000)
+
     data = []
     containerLinks = []
     containerNames = []
@@ -87,53 +89,75 @@ try:
     for j in range(len(containerLinks)):
         containerLink = containerLinks[j]
         containerName = containerNames[j]
+
+        # if containerName != 'Reternity':
+        #     continue
+
         driver.get(containerLink)
 
-        WebDriverWait(driver, 10).until(ec.element_to_be_clickable(
+        WebDriverWait(driver, 20).until(ec.element_to_be_clickable(
             (By.XPATH, '//tr[@ng-if="ctrl.getExperiments(experimentStatus).length"]')))
 
-        trs = driver.find_elements_by_css_selector(
-            '[ng-if="ctrl.getExperiments(experimentStatus).length"]')
+        time.sleep(5)
 
-        for tr in trs:
-            tds = tr.find_elements_by_tag_name('td')
+        for k in range(2, 0, -1):
 
-            if len(tds) == 6:
-                type = tds[1].text
-                # can contain date, a number or a -
-                started = tds[3].text
-                ended = tds[4].text
+            WebDriverWait(driver, 20).until(ec.element_to_be_clickable(
+                (By.XPATH, '//md-select[@ng-model="ctrl.selectedStatus"]')))
+        
+            # e.g select_option_59 ... second last option is Ended ... last option is Archived
+            el_status = driver.find_element_by_css_selector('[id^="select_option_"]:nth-last-child('+str(k)+')')
+            
+            # click status dropdown
+            if el_status.is_displayed() == False:
+                driver.find_element_by_css_selector('md-select[ng-model="ctrl.selectedStatus"]').click()
+                time.sleep(5)
 
-                # ignore running experiments, only focus on finished
-                if started.isnumeric() or started == "-":
-                    continue
+            if el_status.get_attribute('disabled') == 'true':
+                continue
+            else:
+                el_status.click()
+            time.sleep(5)
 
-                if(type != "A/B"):
-                    continue
+            trs = driver.find_elements_by_css_selector(
+                '[ng-if="ctrl.getExperiments(experimentStatus).length"]')
 
-                preliminary_data.append({
-                    'container': containerName,
-                    'type': type,
-                    'started': started,
-                    'ended': ended
-                })
+            for tr in trs:
+                tds = tr.find_elements_by_tag_name('td')
 
-                print('------------')
-                print(containerName)
-                print(type)
-                print(started)
-                print(ended)
+                if len(tds) == 6:
+                    type = tds[1].text
+                    # can contain date, a number or a -
+                    started = tds[3].text
+                    ended = tds[4].text
 
-                detailLinks.append(tds[0].find_element_by_tag_name(
-                    'a').get_attribute('ng-href'))
+                    # ignore running experiments, only focus on finished
+                    if started.isnumeric() or started == "-":
+                        continue
 
-                time.sleep(1)
+                    if(type != "A/B"):
+                        continue
+
+                    preliminary_row = {
+                        'container': containerName,
+                        'type': type,
+                        'started': started,
+                        'ended': ended,
+                        'status': 'archived' if k == 1 else ''
+                    }
+                    preliminary_data.append(preliminary_row)
+
+                    print(preliminary_row)
+
+                    detailLinks.append(tds[0].find_element_by_tag_name(
+                        'a').get_attribute('ng-href'))
+
+                    time.sleep(1)
 
     print('Going over detailLinks')
     for i in range(len(detailLinks)):
         link = detailLinks[i].replace('/report', '')
 
-        print('------------')
         print(baseLink+link)
         driver.get(baseLink+link)
 
