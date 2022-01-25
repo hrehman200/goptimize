@@ -18,6 +18,7 @@ wks = sh[0]
 cells = wks.get_all_values(
     include_tailing_empty_rows=False, include_tailing_empty=False, returnas='matrix')
 
+last_row = len(cells)
 
 def does_exist_in_sheet(row):
     global cells
@@ -143,7 +144,7 @@ try:
                         'type': type,
                         'started': started,
                         'ended': ended,
-                        'status': 'archived' if k == 1 else ''
+                        'status': 'archived' if k == 1 else 'ended'
                     }
                     preliminary_data.append(preliminary_row)
 
@@ -174,7 +175,7 @@ try:
         preliminary_data[i]['view'] = divs[3].text
         preliminary_data[i]['experimentId'] = divs[5].text
 
-        if does_exist_in_sheet(preliminary_data[i]):
+        if last_row > 1 and does_exist_in_sheet(preliminary_data[i]):
             continue
 
         data.append(preliminary_data[i])
@@ -183,8 +184,7 @@ try:
 
     print(data)
 
-    last_row = len(cells)
-    if(last_row == 0):
+    if(last_row <= 1):
         df = pd.DataFrame(data)
         wks.set_dataframe(df, (1, 1))
     else:
