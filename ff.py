@@ -23,7 +23,7 @@ last_row = len(cells)
 def does_exist_in_sheet(row):
     global cells
     for list in cells:
-        if str(row['experimentId']) == list[6]:
+        if str(row['experimentId']) == list[7]:
             return True
 
     return False
