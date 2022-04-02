@@ -21,8 +21,12 @@ if STATUS_TO_FETCH == 'stopped':
     wks = sh[0]
 elif STATUS_TO_FETCH == 'paused':
     wks = sh[1]
+
 cells = wks.get_all_values(
     include_tailing_empty_rows=False, include_tailing_empty=False, returnas='matrix')
+
+last_row = len(cells)
+
 
 def does_exist_in_sheet(row):
     global cells
@@ -31,6 +35,7 @@ def does_exist_in_sheet(row):
             return True
 
     return False
+
 
 response = requests.post(
     'https://api.kameleoon.com/oauth/token',
@@ -53,6 +58,7 @@ def condition(dic):
 
 # Also for the start and end date please remove the timestamps, only put in the actual date like: 4/27/2020
 def dt_format(timestamp):
+    print(timestamp)
     if timestamp == '':
         return ''
     timestamp = timestamp.split('T')[0]
@@ -60,7 +66,7 @@ def dt_format(timestamp):
     return '{0}/{1}/{2:02}'.format(dt.month, dt.day, dt.year % 100)
 
 
-for page in range(1, 2):
+for page in range(1, 3):
     response = requests.get(
         'https://api.kameleoon.com/experiments',
         headers={
@@ -84,9 +90,12 @@ for page in range(1, 2):
 
         # For Kameleoon Experiments please filter out experiments that do not have a dimension associated
         if len(row['trackingTools']) == 0 or 'universalAnalyticsDimension' not in row['trackingTools'][0]:
+            print('continuing...no dimension associated')
             continue
 
-        if does_exist_in_sheet(row):
+        if last_row > 1 and does_exist_in_sheet(row):
+            #print(row)
+            print('continuing...last_row>1')
             continue
 
         item = {
@@ -96,7 +105,7 @@ for page in range(1, 2):
             # 'Start Date': row['schedules'][0]['dateStart'] if len(row['schedules']) > 0 and 'dateStart' in row['schedules'][0] else '',
             # 'End Date': row['schedules'][0]['dateEnd'] if len(row['schedules']) > 0 and 'dateEnd' in row['schedules'][0] else '',
             'Start Date': dt_format(row['dateStarted']),
-            'End Date': dt_format(row['dateEnded'] if 'dateEnded' in row else ''),
+            'End Date': dt_format(row['dateEnded']) if 'dateEnded' in row else '',
             'Site ID': row['siteId'],
             'Domain': row['baseURL'] if 'baseURL' in row else ''
         }
@@ -119,9 +128,8 @@ for page in range(1, 2):
         print(item)
         data.append(item)
 
-last_row = len(cells)
 # For paused experiments the whole sheet needs to be overwritten, because there will be some addition of rows and some removal of rows
-if(last_row == 0 or STATUS_TO_FETCH == 'paused'):
+if(last_row <= 1 or STATUS_TO_FETCH == 'paused'):
     df = pd.DataFrame(data)
     wks.set_dataframe(df, (1, 1))
 else:
